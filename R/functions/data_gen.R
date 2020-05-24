@@ -9,8 +9,6 @@ data_gen <-  function(n, d, p, true_model,sigma = 0.05){
 
   data = data.frame(X = input, Ye = output + error, Yt = output)
 
-  library(ggplot2)
-
   return(data)
 }
 
