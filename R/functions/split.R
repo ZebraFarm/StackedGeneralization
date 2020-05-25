@@ -18,12 +18,11 @@ split <- function(k,data){
 
 	remainder = nrow(data) %% k
 	rand_rem = sample(remainder)
-	if(remainder != 0){
-
-	for(i in 1:remainder){
-		rbind( ret[[rand[i]]], data[rand[size*k + i]])
-	}
-	}
+	
+	if(remainder != 0)
+	  for(i in 1:remainder)
+		  rbind( ret[[rand[i]]], data[rand[size*k + i]])
+	  
 
 	return(ret)
 }

@@ -1,6 +1,6 @@
 
-source('./functions/SG.R')
-
+#source('./functions/SG.R') # Not sure why this isn't working
+source('./SG.R') # Seems to work, once setwd(./functions)
 
 #library(parallel)
 #no_cores <- detectCores()-1
@@ -19,32 +19,64 @@ true_model <- function(input, p = 1){
     return(sum(ans))
 }
 
-set.seed(100)
-SG(n = 50:100, d = 1, p = 1, true.model)
+set.seed(9)
+
+param.min = 50
+param.max = 80
+res <- rep(list(), 3) 
+
+tmp <- data.frame(matrix(0, ncol = 3, nrow = (param.max - param.min + 1)))
+param_MSE <- data.frame("Parameters" = param.min:param.max , "Best k Model" = tmp[,1], "Avg Model" = tmp[,2], "SG Model" = tmp[,3])
+
+for(param in 1: ((param.max - param.min + 1)) ) {
+  res <- SG(n = param.min + param - 1 , d = 1, p = 1, sigma = 10, true.model)
+  k.pred      <- res[[1]]
+  SG.pred    <- res[[2]]
+  true.label  <- res[[3]]
+  
+  param_MSE[param,2:4] <- my.stat(k.pred, SG.pred, true.label)
+  
+  cat(param," ")
+}
 
 # Statistics
-#run statistics
-model.stat <- function(res.k, res.SG, res.True){
+my.stat <- function(k.pred, gen.pred, true.label){
+  k = length(k.pred)
+  #Majority <- mode(k.pred)                     # Classifiers
 
-#Majority <- mode(test.pred)                     # Classifiers
-Averaged <- rowSums(test.pred) / k
-
-
-SSE <- sum(sapply(cl, 1:nrow(pred) , function(x) (pred[x,1:p] - pred[x,(p+1):(2*p)])^2 ) )
-MSE <- SSE/nrow(pred)
-RMSE <- sqrt(MSE)
-
-
-# Results
-
-#confusionMatrix(Majority, true.label)$table
-#confusionMatrix(Averaged, true.label)$table
-confusionMatrix(SG.pred, true.label)$table
-
-
-# Compare with single classifier
-mod <- train(x = iris[rand[1:100],1:4],y = iris[rand[1:100],5], method = 'rf')
-pr <- predict(mod, newdate = iris[,1:4])
-confusionMatrix(pr,iris[,5])$table
+  # Best k model
+  SSE.k <- numeric(k)
+  for(j in 1:k){
+  SSE.k[j] <- sum(sapply(1:length(Avg.pred) , function(x) (k.pred[x,j] - true.label[x])^2 ) )}
+  MSE_best <- min(SSE.k)/length(true.label)
   
-} 
+  # Averaged Stats from k models
+  Avg.pred <- rowMeans(k.pred)
+  SSE <- sum(sapply(1:length(true.label) , function(x) (Avg.pred[x] - true.label[x])^2 ) )
+  MSE_avg <- SSE/length(true.label)
+
+  # SG stats
+  SSE <- sum(sapply(1:length(true.label) , function(x) (gen.pred[x] - true.label[x])^2 ) )
+  MSE_SG <- SSE/length(true.label)
+  
+  return(c(MSE_best+0.01, MSE_avg, MSE_SG))
+}
+
+param_MSE
+
+
+ggplot(param_MSE,aes(Parameters)) + 
+  geom_line(aes(y=Best.k.Model,colour="Best K Model")) +
+  geom_line(aes(y=Avg.Model,colour="Average Model")) +
+  geom_line(aes(y=SG.Model,colour="Stacked Model")) +
+  labs(y = "MSE") + theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("Best K Model" = "blue", "Average Model" = "red", "Stacked Model" = "black"))
+
+
+# Example Data
+sigma = 10  #for N(0, sigma)
+n = 100; d = 1; p = 1
+data <- data_gen(n, d, p, true_model, sigma)
+ggplot(data,aes(X)) +
+  geom_line(aes(y=Yt),colour="red") +
+  geom_point(aes(y=Ye),colour="black")
