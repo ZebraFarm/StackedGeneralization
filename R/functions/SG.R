@@ -16,55 +16,51 @@ library(caret)   # ML algorithms
 library(mlbench) # datasets
 library(ggplot2) # graphics
 library(np)      # Nonparametric Kernel
+library(MASS)    # Models
 
+#For Testing
+#n = 100; d = 1; p = 1
+#tr.data <- data_gen(n, d, p, true_model, sigma)
+#te.data <- data_gen(n, d, p, true_model, sigma)
 
-#true_model <- function(input, p = 1){
-#  scale = c(1,0) # (aX^2, bX)
-#  shift = 0      # c
-  
-#  tmp = input %*% t(scale)
-#  ans = tmp[,1]^2 + tmp[,2] + shift
-  
-#  return(sum(ans))
-#}
+SG <- function(n, d, p, sigma, true.model, tr.data, te.data){
 
-SG <- function(n, d, p, sigma, true.model){
-
-  #sigma for error generation ~ N(0, sigma)
-n = 100; d = 1; p = 1
-
-# make data
-tr.data <- data_gen(n, d, p, true_model, sigma)
-te.data <- data_gen(n, d, p, true_model, sigma)
-
-#ggplot(tr.data,aes(X)) +
-#  geom_line(aes(y=Yt),colour="red") +
-#  geom_point(aes(y=Ye),colour="black")
-
+k = 4
 
 #l1.input <- t (sapply(1:n,function(x) train_predict(tr.data[,],d,p,x)))
-
-l1.input <- data.frame(matrix(ncol = 4,nrow = n), Yt = 0)
+l1.input <- data.frame(matrix(ncol = k ,nrow = n), Yt = 0)
 for(i in 1:n){
   l1.input[i,] <- train_predict(tr.data[,],d,p,i)
 }
-#l1.input$Yt
 
 # Train Generalizer
 # Weighted Least Squares, sum(w_i) = 1, w_i > 0.
-SG.model <- generalize(l1.input[,1:4],l1.input[,5])
+SG.weights <- generalize(l1.input[,1:4],l1.input[,5], k)
 
 
-# Test
-true.label = te.data$Yt
-test.pred <- train_predict_all(tr.data,te.data, d,p)
-#SG.pred <- predict(SG.model, newdata = test.pred)      # n x p vector
- 
-SG.pred <- numeric(nrow(test.pred))
-coeff <- SG.model$coefficients
-for(i in 1:nrow(test.pred)){
-  SG.pred[i] <- coeff[1] * test.pred[i,1] + coeff[2] * test.pred[i,2] + coeff[3] * test.pred[i,3] + coeff[4] * test.pred[i,4]
+# Test Training Data
+true.label = tr.data$Yt
+tr.pred <- train_predict_all(tr.data,tr.data, d,p)
+
+tr.SG.pred <- numeric(nrow(tr.pred))
+for(i in 1:nrow(tr.pred)){
+  for(j in 1:k){
+    tr.SG.pred[i] = tr.SG.pred[i] + SG.weights[j] * tr.pred[i,j]
+  }
 }
 
-return(list(test.pred[,1:4], SG.pred, true.label))
+# Test Testing Data
+true.label = te.data$Yt
+te.pred <- train_predict_all(tr.data,te.data, d,p)
+
+# Based on my cheap version of WLS estimates
+te.SG.pred <- numeric(nrow(te.pred))
+for(i in 1:nrow(te.pred)){
+  for(j in 1:k){
+    te.SG.pred[i] = te.SG.pred[i] + SG.weights[j] * te.pred[i,j]
+  }
+}
+
+return(list(list(tr.pred[,1:4], tr.SG.pred, tr.data$Yt), 
+            list(te.pred[,1:4], te.SG.pred, te.data$Yt)))
 }

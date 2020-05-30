@@ -1,20 +1,29 @@
 # Train & Pred # Single step in p-out
 train_predict <- function(data, d, p, row){
 
+  k = 4
+  
   tr.data <- data[-row,]
   te.data <- data[row,]
 
-  model <- rep(list(),4)
-  pred.row <- data.frame(matrix(ncol = 4, nrow = p))
+  model <- rep(list(),k)
+  pred.row <- data.frame(matrix(ncol = k, nrow = p))
 
   model[[1]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^1)) # No regularization
-  model[[2]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^2)) # No regularization
+  model[[2]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^5)) # No regularization
   model[[3]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^3)) # No regularization
   model[[4]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^4)) # No regularization
-  #model[[4]] <- npreg(tydat = tr.data[,d + 1:p], txdat = tr.data[,1:d])
+
+  # try lm.ridge(formula, lambda = c(a,b,c))
+  # also try glmnet
+  
+  
+    #model[[4]] <- npreg(tydat = tr.data[,d + 1:p], txdat = tr.data[,1:d])
+  
+  
   
   pred.row[,1]   = model[[1]]$coefficients[1] + model[[1]]$coefficients[2] * te.data[,1:d]   #predict(model[[1]], data.frame(x = te.data[,1:d]) )
-  pred.row[,2]   = model[[2]]$coefficients[1] + model[[2]]$coefficients[2] * (te.data[,1:d]^2) #predict(model[[2]], te.data[,1:d])
+  pred.row[,2]   = model[[2]]$coefficients[1] + model[[2]]$coefficients[2] * (te.data[,1:d]^5) #predict(model[[2]], te.data[,1:d])
   pred.row[,3]   = model[[3]]$coefficients[1] + model[[3]]$coefficients[2] * (te.data[,1:d]^3) #predict(model[[3]], te.data[,1:d])
   pred.row[,4]   = model[[4]]$coefficients[1] + model[[4]]$coefficients[2] * (te.data[,1:d]^4) #predict(model[[4]], te.data[,1:d])
 
@@ -39,7 +48,7 @@ train_predict <- function(data, d, p, row){
   
   # #GAM's
 
-  # # Nonpolynomial Kernel regression
+  # # Nonpolynomial (or non-parametric) Kernel regression
   # library(np)
   # npreg(bws, txdat = tr.data[,1:d], tydat = tr.data[,d + 1:p])
 
@@ -59,13 +68,13 @@ train_predict_all <- function(tr.data, te.data, d, p){
   pred <- data.frame(matrix(ncol = 4, nrow = nrow(te.data) ) )
   
   model[[1]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^1)) # No regularization
-  model[[2]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^2)) # No regularization
+  model[[2]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^5)) # No regularization
   model[[3]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^3)) # No regularization
   model[[4]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^4)) # No regularization
   #model[[4]] <- npreg(tydat = tr.data[,d + 1:p], txdat = tr.data[,1:d])
   
   pred[,1]   = model[[1]]$coefficients[1] + model[[1]]$coefficients[2] * te.data[,1:d] #predict(model[[1]], data.frame(x = te.data[,1:d]) )
-  pred[,2]   = model[[2]]$coefficients[1] + model[[2]]$coefficients[2] * te.data[,1:d]^2 #predict(model[[2]], te.data[,1:d])
+  pred[,2]   = model[[2]]$coefficients[1] + model[[2]]$coefficients[2] * te.data[,1:d]^5 #predict(model[[2]], te.data[,1:d])
   pred[,3]   = model[[3]]$coefficients[1] + model[[3]]$coefficients[2] * te.data[,1:d]^3 #predict(model[[3]], te.data[,1:d])
   pred[,4]   = model[[4]]$coefficients[1] + model[[4]]$coefficients[2] * te.data[,1:d]^4 #predict(model[[4]], te.data[,1:d])
   

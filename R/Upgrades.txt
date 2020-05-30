@@ -1,0 +1,40 @@
+This program is working in a very tight controlled setting.
+
+Throughout every step their are updates that can be achieved.
+
+1: Data Generation
+    - Allow ranges for each dimension
+    - Different functions (true.models) for each dimension
+    - Define error terms (easier)
+
+2: Train Predict
+    - Seperate leave-one-out and All better
+    - Allow the number of different models to be specified
+    - Make the option of choosing different models
+    - Non-parametric Kernel Smoothing
+
+3: Polynomial Regression
+    - Implement Ridge Regression (Regularization)
+    - Splines?
+
+4: Generalize
+    * My WLS estimates
+    - Log Score
+
+    - This is currently implemented with simple linear model coefficients
+    - Maybe try another type of algorithm
+
+5: Stacked Generalization
+    - I could parallelize this
+
+6: Statistics
+    * replicates
+    - Only recording MSE
+    - Find best model?
+    - Test as dimensions increase and parameters
+        - Must finish Train_Predict (2), first!
+    - Better Visuals with a plot the the Stacked Generalizer on the training data.
+
+    * Stack Training and Test Results Together
+
+

@@ -1,3 +1,5 @@
+# http://pingax.com/regularization-implementation-r/
+
 # Regularized Polynomial Regression
 poly_reg <- function(data, degree, lambda, dim = 1, p = 1){
 

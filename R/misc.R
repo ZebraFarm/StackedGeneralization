@@ -31,7 +31,7 @@ library(LogicReg) # logreg
 # rf
 # xgbLinear
 
-model = train(x = train.dat[,1:4], train.dat[,5], method = 'rf')
+model = train(x = iris[,1:4], iris[,5], method = 'rf')
 model
 
 predModel = predict(model,newdata = iris[,1:4]) 
