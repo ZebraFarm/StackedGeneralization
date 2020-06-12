@@ -19,9 +19,8 @@ Throughout every step their are updates that can be achieved.
 
 4: Generalize
     * My WLS estimates
+    * This is currently implemented with simple linear model coefficients
     - Log Score
-
-    - This is currently implemented with simple linear model coefficients
     - Maybe try another type of algorithm
 
 5: Stacked Generalization
@@ -29,11 +28,11 @@ Throughout every step their are updates that can be achieved.
 
 6: Statistics
     * replicates
-    - Only recording MSE
+    * Only recording MSE
     - Find best model?
     - Test as dimensions increase and parameters
         - Must finish Train_Predict (2), first!
-    - Better Visuals with a plot the the Stacked Generalizer on the training data.
+    * Better Visuals with a plot the the Stacked Generalizer on the training data.
 
     * Stack Training and Test Results Together
 

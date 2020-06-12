@@ -1,6 +1,6 @@
 ---
 title: "R Experiments - Working"
-output: html_notebook
+output: html  _notebook
 ---
 
 ```{r,include = FALSE}
@@ -8,30 +8,29 @@ output: html_notebook
 my.stat <- function(k.pred, gen.pred, true.label){
   k = length(k.pred)
   #Majority <- mode(k.pred)                     # Classifiers
-
+  
   # Best k model
   SSE.k <- numeric(k)
   for(j in 1:k){
-  SSE.k[j] <- sum(sapply(1:length(true.label) , function(x) (k.pred[x,j] - true.label[x])^2 ) )}
+    SSE.k[j] <- sum((k.pred[,j] - true.label)^2)
+  }
   MSE_best <- min(SSE.k)/length(true.label)
   
   # Averaged Stats from k models
   Avg.pred <- rowMeans(k.pred)
-  SSE <- sum(sapply(1:length(true.label) , function(x) (Avg.pred[x] - true.label[x])^2 ) )
+  SSE <- sum((Avg.pred - true.label)^2)
   MSE_avg <- SSE/length(true.label)
-
+  
   # SG stats
-  SSE <- sum(sapply(1:length(true.label) , function(x) (gen.pred[x] - true.label[x])^2 ) )
+  SSE <- sum((gen.pred - true.label)^2)
   MSE_SG <- SSE/length(true.label)
   
-  return(c(MSE_best+0.01, MSE_avg, MSE_SG))
+  return(c(MSE_best, MSE_avg, MSE_SG))
 }
-
-param_MSE
 ```
 
 
-```{r}
+```{r, include = FALSE}
 #source('./functions/SG.R') # Not sure why this isn't working
 setwd('./functions')
 #getwd()
@@ -45,71 +44,131 @@ source('./SG.R')            # Seems to work, once setwd(./functions)
 ```
 
 
-```{r}
+```{r, echo = FALSE}
 # aX^2 + bX + c
 true_model <- function(input, p = 1){
-    scale = c(0,1,3) # (aX^2, bX)
-    shift = 0      # c
+    scale = c(3,1) # (aX^2, bX)
+    shift = 5      # c
 
     tmp = input %*% t(scale)
-    ans = tmp[,1]^3 + tmp[,2]^2 + tmp[,3] + shift
+    ans = tmp[,1]^2 + tmp[,2] + shift
 
     return(sum(ans))
 }
 
 set.seed(9)
 
-param.min = 50
-param.max = 60
+param.min = 10
+param.max = 200
+replicate = 10
+iter = 1
+d = 1
+p = 1
+sigma = 1
+
 res <- rep(list(), 3) 
 
 tmp <- data.frame(matrix(0, ncol = 3, nrow = (param.max - param.min + 1)))
-param_MSE <- data.frame("Parameters" = param.min:param.max , "Best k Model" = tmp[,1], "Avg Model" = tmp[,2], "SG Model" = tmp[,3])
+tr.param_MSE <- data.frame("SampleSize" = param.min:param.max , "Best k Model" = tmp[,1], "Avg Model" = tmp[,2], "SG Model" = tmp[,3])
+te.param_MSE <- data.frame("SampleSize" = param.min:param.max , "Best k Model" = tmp[,1], "Avg Model" = tmp[,2], "SG Model" = tmp[,3])
+true.MSE     <- data.frame("SampleSize" = param.min:param.max , "True Model" = tmp[,1])
 
-#THIS SHOULD BE RUN IN PARALLEL
-for(param in 1: ((param.max - param.min + 1)) ) {
-  res <- SG(n = param.min + param - 1 , d = 1, p = 1, sigma = 10, true.model)
-  k.pred      <- res[[1]]
-  SG.pred    <- res[[2]]
-  true.label  <- res[[3]]
+for(param in seq(1,(param.max - param.min + 1),iter) ) {
+
+  tr.ans <- matrix(0, nrow=replicate, ncol = 3)
+  te.ans <- matrix(0, nrow=replicate, ncol = 3)
+  true.ans <- numeric(replicate)
   
-  param_MSE[param,2:4] <- my.stat(k.pred, SG.pred, true.label)
+  n = param.min + param - 1
   
-  cat(param," ")
+  for(j in 1: replicate){
+    # make data 
+    tr.data <- data_gen(n, d, p, true_model, sigma)
+    te.data <- data_gen(1000, d, p, true_model, sigma)
+    res <- SG(n, d = 1, p = 1, sigma = 10, true.model, tr.data, te.data)
+  
+    tr.ans[j,] <- my.stat(res[[1]][[1]], res[[1]][[2]], res[[1]][[3]])
+    te.ans[j,] <- my.stat(res[[2]][[1]], res[[2]][[2]], res[[2]][[3]])
+    true.ans[j]   <- 1/n * sum((tr.data$Ye - tr.data$Yt)^2) # MSE
+    
+    
+  }
+  tr.param_MSE[param,2:4] <- colMeans(tr.ans)
+  te.param_MSE[param,2:4] <- colMeans(te.ans)
+  true.MSE[param,2]       <- mean(true.ans)
+  cat(param.max + 1 - param, " ")
 }
+
+temp = te.param_MSE
+```
+
+**Sample Size  10 to 200**
+
+**Replicates   10**
+
+This function $3x^2 + x + 5$ is used to generate the data, with noise from N(0,1)
+
+Training Models used: $x^3,x^4,x^5,x^6$ based on the R function lm($Y \sim x^p$ )
+
+$\sigma = 1$
+
+```{r, echo = FALSE}
+n = 100
+sigma = 1
+tr.data <- data_gen(n, d, p, true_model, sigma)
+te.data <- data_gen(1000, d, p, true_model, sigma)
+res <- SG(n, d = 1, p = 1, sigma = 10, true.model, tr.data, te.data)
+res[[3]] = tr.data$X
+
+ggplot(tr.data,aes(X)) +
+  geom_line(aes(y=Yt,colour="True Model")) +
+  geom_point(aes(y=Ye,colour="Data")) + 
+  geom_line(aes(y=res[[1]][[2]],colour="SG Fit")) + 
+  labs(x = "X", y = "Y", title = "Train data")+ theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("SG Fit" = "green", "Data" = "black", "True Model" = "red"))
+
+ggplot(te.data,aes(X)) +
+  geom_line(aes(y=Yt,colour="True Model")) +
+  geom_point(aes(y=Ye,colour="Data")) + 
+  geom_line(aes(y=res[[2]][[2]],colour="SG Fit")) + 
+  labs(x = "X", y = "Y", title = "Test data")+ theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("SG Fit" = "green", "Data" = "black", "True Model" = "red"))
+
 ```
 
 
-```{r}
-# Example Data
-sigma = 10  #for N(0, sigma)
-n = 100; d = 1; p = 1
-sg.p <- SG(n , d = 1, p = 1, sigma = 10, true.model)[[2]]
-data <- data_gen(n, d, p, true_model, sigma)
-ggplot(data,aes(X)) +
-  geom_line(aes(y=Yt),colour="red") +
-  #geom_line(aes(y=order(sg.p)),colour="green") +
-  geom_point(aes(y=Ye),colour="black")
+```{r, echo = FALSE}
+tr.param_MSE = tr.param_MSE[seq(1,(param.max - param.min + 1),iter),]
+te.param_MSE = te.param_MSE[seq(1,(param.max - param.min + 1),iter),]
+true.MSE     = true.MSE[seq(1,(param.max - param.min + 1),iter),]
 
-ggplot(param_MSE,aes(Parameters)) + 
-  geom_line(aes(y=Best.k.Model,colour="Best K Model")) +
-  geom_line(aes(y=Avg.Model,colour="Average Model")) +
-  geom_line(aes(y=SG.Model,colour="Stacked Model")) +
-  labs(y = "MSE") + theme(legend.position = "bottom") + 
-  scale_color_manual("", values = c("Best K Model" = "blue", "Average Model" = "red", "Stacked Model" = "black"))
+MSEs = data.frame(tr = tr.param_MSE, te = te.param_MSE, true.MSE)
 
-ggplot(param_MSE,aes(Parameters)) + 
-  geom_line(aes(y=SG.Model,colour="Stacked Model")) +
-  labs(y = "MSE") + theme(legend.position = "bottom") + 
-  scale_color_manual("", values = c("Stacked Model" = "black"))
+ggplot(MSEs,aes(SampleSize)) + 
+  geom_line(aes(y=tr.SG.Model,colour="Training SG")) +
+  geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
+  geom_line(aes(y=True.Model,colour="True Model")) +
+  labs(y = "MSE",x="Sample Size", title = "MSE") + theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "True Model" = "red"))
 
-ggplot(param_MSE,aes(Parameters)) + 
-  geom_line(aes(y=Best.k.Model,colour="Best K Model")) +
-  labs(y = "MSE") + theme(legend.position = "bottom") + 
-  scale_color_manual("", values = c("Best K Model" = "blue"))
+ggplot(MSEs,aes(SampleSize)) + 
+  geom_line(aes(y=tr.SG.Model,colour="Training SG")) +
+  geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
+  geom_line(aes(y=True.Model,colour="True Model")) +
+  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(-0.001,2) +
+  theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "True Model" = "red"))
 
-ggplot(param_MSE,aes(Parameters)) + 
-  geom_line(aes(y=Avg.Model,colour="Average Model")) +
-  labs(y = "MSE") + theme(legend.position = "bottom") + 
-  scale_color_manual("", values = c("Average Model" = "red"))
+
+Diff = data.frame(Difference = MSEs$te.SG.Model - MSEs$tr.SG.Model, SampleSize = MSEs$SampleSize)
+ggplot(Diff,aes(SampleSize)) + 
+  geom_line(aes(y=Difference),colour="blue") +
+  labs(y = "MSE Difference (te.MSE - tr.MSE)",x="Sample Size",title = "MSE Difference Between Training and Testing") + theme(legend.position = "bottom")
+
+ggplot(Diff,aes(SampleSize)) + 
+  geom_line(aes(y=Difference),colour="blue") +
+  labs(y = "MSE Difference (te.MSE - tr.MSE)",x="Sample Size",title = "MSE Difference Between Training and Testing: ZOOMED") + 
+  theme(legend.position = "bottom") + ylim(-0.1,4)
+
+
 ```
