@@ -52,9 +52,9 @@ my.stat <- function(k.pred, gen.pred, true.label){
 
 set.seed(9)
 
-param.min = 5
-param.max = 200
-replicate = 8
+param.min = 59
+param.max = 60
+replicate = 1
 iter = 1
 d = 1
 p = 1
@@ -97,15 +97,16 @@ for(param in seq(1,(param.max - param.min + 1),iter) ) {
   dg.MSE[param,2]       <- mean(dg.ans)
   true.Model.MSE[param,2] <- mean(true.model.ans)
   
-  
-  cat(param.max + 1 - param, " ")
+    
+  cat(" ",param.max + 1 - param, "\n")
 }
 
 # Remove skipped elements (eg when Sample Size = 5,10,15,20...)
-tr.param_MSE = tr.param_MSE[seq(1,(param.max - param.min + 1),iter),]
-te.param_MSE = te.param_MSE[seq(1,(param.max - param.min + 1),iter),]
-dg.MSE     = dg.MSE[seq(1,(param.max - param.min + 1),iter),]
-true.Model.MSE = true.Model.MSE[seq(1,(param.max - param.min + 1),iter),]
+include = seq(1,(param.max - param.min + 1),iter)
+tr.param_MSE = tr.param_MSE[include,]
+te.param_MSE = te.param_MSE[include,]
+dg.MSE     = dg.MSE[include,]
+true.Model.MSE = true.Model.MSE[include,]
 
 MSEs = data.frame(SampleSize = dg.MSE$SampleSize, 
                   tr = tr.param_MSE, 
@@ -127,7 +128,7 @@ ggplot(MSEs,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(-0.001,8) +
+  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(-0.001,3) +
   theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 
@@ -136,7 +137,7 @@ ggplot(MSEs,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(-0.001,0.3) +
+  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(-0.001,1.3) +
   theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 

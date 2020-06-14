@@ -24,11 +24,34 @@ SSE <- function(exp, truth){
 
 # Generalize 
 generalize <-  function(X,Y, k){
-      
-  model <- lm(Y ~ 0 + X[,1] + X[,2] + X[,3] + X[,4])
-  return(model$coefficients)
+  
+  # Breimann Optimized weights
+  
+  # Find Appropriate Starting values    
+  SumsSquares <- numeric(k)
+  for(i in 1:k) SumsSquares[i] = SSE(X[,i],Y)
+  
+  SumsSquaresTotal <- sum(SumsSquares)
+  InvSumsSquares <- SumsSquaresTotal/SumsSquares
+  InvTotalPerc <- sum(InvSumsSquares)
+  start <- InvSumsSquares / InvTotalPerc 
+  
+  # Figure out constrained optimzation of     a'Ra , a >= 0 , sum(a) = 1
+  R = get_residuals(X,Y,k)
+  obj <- function(x) t(x/sum(x)) %*% R %*% (x/sum(x))
+  weights <- nlminb(start, obj, lower = rep(0,k), upper = rep(1,k) )$par
+        
+  #model <- lm(Y ~ 0 + X[,1] + X[,2] + X[,3] + X[,4])
+  cat(weights/sum(weights))
+  return(weights/sum(weights)) #model$coefficients)
 }
 
+
+# Generalize 
+#generalize <-  function(X,Y, k){
+#  model <- lm(Y ~ 0 + X[,1] + X[,2] + X[,3] + X[,4])
+#  return(model$coefficients)
+#}
 
 
 
@@ -50,11 +73,9 @@ a
 
 # Figure out constrained optimzation of     a'Ra , a >= 0 , sum(a) = 1
 R = get_residuals(X,Y,k)
-
-t(a) %*% R %*% a
-
-obj <- function(x) t(x) %*% R %*% x
-res <- nlminb(start = a, obj)
+obj <- function(x) t(x/sum(x)) %*% R %*% (x/sum(x))
+res <- nlminb(start = a, obj, lower = rep(0,k))
+res
 w <-  res$par
 w/sum(w)
 
