@@ -1,4 +1,3 @@
-
 get_residuals <- function(X,Y,k){
   
   n = length(Y)
@@ -26,64 +25,39 @@ SSE <- function(exp, truth){
 generalize <-  function(X,Y, k){
   
   # Breimann Optimized weights
-  
-  # Find Appropriate Starting values    
-  SumsSquares <- numeric(k)
-  for(i in 1:k) SumsSquares[i] = SSE(X[,i],Y)
-  
-  SumsSquaresTotal <- sum(SumsSquares)
-  InvSumsSquares <- SumsSquaresTotal/SumsSquares
-  InvTotalPerc <- sum(InvSumsSquares)
-  start <- InvSumsSquares / InvTotalPerc 
-  
-  # Figure out constrained optimzation of     a'Ra , a >= 0 , sum(a) = 1
   R = get_residuals(X,Y,k)
-  obj <- function(x) t(x/sum(x)) %*% R %*% (x/sum(x))
-  weights <- nlminb(start, obj, lower = rep(0,k), upper = rep(1,k) )$par
-        
-  #model <- lm(Y ~ 0 + X[,1] + X[,2] + X[,3] + X[,4])
-  cat(weights/sum(weights))
-  return(weights/sum(weights)) #model$coefficients)
+  #write.csv(R,'Res.csv')
+  
+  start <- rep(1/k,k)
+  obj <- function(a) t(a/sum(a)) %*% R %*% (a/sum(a))
+  weights <- nlminb(start, obj, lower = rep(0,k) )$par
+  
+  #cat("\n",weights/sum(weights))
+  return(weights/sum(weights))
 }
 
 
 # Generalize 
 #generalize <-  function(X,Y, k){
-#  model <- lm(Y ~ 0 + X[,1] + X[,2] + X[,3] + X[,4])
-#  return(model$coefficients)
+#  model <- lm(Y ~ 0 + . , data = X[,1:k])
+  
+#  coeff = model$coefficients
+#  coeff[is.na(coeff)] = 0
+  
+#  return(coeff)
 #}
 
+#k = 30
+#R = read.csv('Res.csv')
+#R = as.matrix(R[2:31])
+#R
+#start <- rep(1/k,k)
 
+#obj <- function(x) {
+#  x = x / sum(x)
+#  t(x) %*% R %*% (x)
+#}
 
-set.seed(10)
-k = 4
-Y = rbinom(100,1,p = 0.8)
-X = data.frame(X1 = rbinom(100,1,p = 0.2),X2 = rbinom(100,1,p = 0.2),X3 = rbinom(100,1,p = 0.6),X4 = rbinom(100,1,p = 0.6))
-
-# Find Appropriate Starting values    
-SumsSquares <- numeric(k)
-for(i in 1:k) SumsSquares[i] = SSE(X[,i],Y)
-
-SumsSquaresTotal <- sum(SumsSquares)
-InvSumsSquares <- SumsSquaresTotal/SumsSquares
-InvTotalPerc <- sum(InvSumsSquares)
-a <- InvSumsSquares / InvTotalPerc 
-a
-# Breimann Optimized weights
-
-# Figure out constrained optimzation of     a'Ra , a >= 0 , sum(a) = 1
-R = get_residuals(X,Y,k)
-obj <- function(x) t(x/sum(x)) %*% R %*% (x/sum(x))
-res <- nlminb(start = a, obj, lower = rep(0,k))
-res
-w <-  res$par
-w/sum(w)
-
-#library(CVXR)
-#obj <- function(x) t(a) %*% R %*% a
-#constr <- list(a >= 0, sum(a) == 1)
-#pro <- Problem(Minimize(obj), constr)
-#solve(pro)
-
-
-
+#ans = nlminb(start, obj, lower = rep(0,k) )$par
+#optim(par = start, fn = obj, lower = rep(0,k) )$par
+#ans/sum(ans)

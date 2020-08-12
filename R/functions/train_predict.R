@@ -1,56 +1,31 @@
 # Train & Pred # Single step in p-out
-train_predict <- function(data, d, p, row){
+train_predict <- function(data, d, p, k, row){
 
-  k = 4
-  
   tr.data <- data[-row,]
   te.data <- data[row,]
 
-  model <- rep(list(),k)
   pred.row <- data.frame(matrix(ncol = k, nrow = p))
 
-  model[[1]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^1)) # No regularization
-  model[[2]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^3) + I(tr.data[,1:d]^2)) # No regularization
-  model[[3]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^2)) # No regularization
-  model[[4]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^4)) # No regularization
-
-  # try lm.ridge(formula, lambda = c(a,b,c))
-  # also try glmnet
-
-  
-  pred.row[,1]   = model[[1]]$coefficients[1] + model[[1]]$coefficients[2] * te.data[,1:d]^1   #predict(model[[1]], data.frame(x = te.data[,1:d]) )
-  pred.row[,2]   = model[[2]]$coefficients[1] + model[[2]]$coefficients[2] * te.data[,1:d]^3 + model[[2]]$coefficients[3] * (te.data[,1:d]^2)
-  pred.row[,3]   = model[[3]]$coefficients[1] + model[[3]]$coefficients[2] * (te.data[,1:d]^2)
-  pred.row[,4]   = model[[4]]$coefficients[1] + model[[4]]$coefficients[2] * (te.data[,1:d]^4)
-
-  
-  #pred.row <- data.frame(matrix(ncol = 3*k, nrow = p))
-  
-  # Train and predict
-  # model <- rep(list(),3*k)
-  # degree = 1    # degree of the polynomial predictor
-  # #for(i in 1:k){
+  # Building models so that as i increases the model increases.
+  for(i in 1:k){
+    input <- matrix(tr.data$X, nrow = nrow(tr.data) ,ncol = i)
+    for(j in 1:i) 
+      input[,j] = input[,j]^(j+2)
     
-  #   model[[i]]    <- lm(tr.data[,d + 1:p] ~ poly(tr.data,degree + i)) # No regularization
-  #   pred.row[,i]   = predict(model[[i]],newdata = te.data)
-
-  #   model[[i+1]]  <- poly_reg(tr.data,degree + i, 0.5) # Some regularization
-  #   pred.row[,i+1] = predict(model[[i+1]],newdata = te.data)
-
-  #   model[[i+2]]  <- poly_reg(tr.data,degree + i, 1) # Lots regularization
-  #   pred.row[,i+2] = predict(model[[i+2]],newdata = te.data)
-
-  # #Spline Models
+    coeff  <- lm(tr.data$Ye ~ ., data = data.frame(input))$coefficients
+    coeff[is.na(coeff)] = 0
   
-  # #GAM's
+    
+    pred.row[,i]   = coeff[1]
+    for(j in 1:i)
+      pred.row[,i] = pred.row[,i] + coeff[i+1] * te.data[,1:d]^(j+2)
+    
+    #coeff <- lm(tr.data$Ye ~ I(tr.data[,1:d]^(i+2)))
+    #pred.row[,i]   = coeff[1] + coeff[2] * te.data[,1:d]^(i+2)
+  }
 
-  # # Nonpolynomial (or non-parametric) Kernel regression
-  # library(np)
-  # npreg(bws, txdat = tr.data[,1:d], tydat = tr.data[,d + 1:p])
 
-  # }
-  
-  pred.row = data.frame(pred.row, Yt = te.data$Yt) # I do not think this works p > 1
+  pred.row = data.frame(pred.row, Ye = te.data$Ye) # I do not think this works p > 1
 
   #Data frame with row size = 1
   return(pred.row)
@@ -58,55 +33,29 @@ train_predict <- function(data, d, p, row){
 
 
 # Train & Pred  All Data
-train_predict_all <- function(tr.data, generate = TRUE, d, p, sigma){
-
-  model <- rep(list(),4)
-  
-  model[[1]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^1)) # No regularization
-  model[[2]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^3) + I(tr.data[,1:d]^2)) # No regularization
-  model[[3]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^2)) # No regularization
-  model[[4]] <- lm(tr.data[,d + 1:p] ~ I(tr.data[,1:d]^4)) # No regularization
-  #model[[4]] <- npreg(tydat = tr.data[,d + 1:p], txdat = tr.data[,1:d])
+train_predict_all <- function(tr.data, generate = TRUE, d, p, k, sigma){
   
   if(generate) 
     te.data = data_gen(1000,d,p,true_model, sigma)
   else 
     te.data = tr.data
+  
+  pred <- data.frame(matrix(ncol = k, nrow = nrow(te.data) ) )
+  
+  for(i in 1:k){
+    input <- matrix(tr.data$X, nrow = nrow(tr.data) ,ncol = i)
+    for(j in 1:i) 
+      input[,j] = input[,j]^(j+2)
     
-  pred <- data.frame(matrix(ncol = 4, nrow = nrow(te.data) ) )
+    coeff  <- lm(tr.data$Ye ~ ., data = data.frame(input))$coefficients
+    coeff[is.na(coeff)] = 0
+    
+    pred[,i]   = coeff[1]
+    for(j in 1:i)
+      pred[,i] = pred[,i] + coeff[i+1] * (te.data[,1:d]^(j+2))
+  }
   
-  pred[,1]   = model[[1]]$coefficients[1] + model[[1]]$coefficients[2] * te.data[,1:d]^1 #predict(model[[1]], data.frame(x = te.data[,1:d]) )
-  pred[,2]   = model[[2]]$coefficients[1] + model[[2]]$coefficients[2] * te.data[,1:d]^3 + model[[2]]$coefficients[3] * te.data[,1:d]^2
-  pred[,3]   = model[[3]]$coefficients[1] + model[[3]]$coefficients[2] * te.data[,1:d]^2 
-  pred[,4]   = model[[4]]$coefficients[1] + model[[4]]$coefficients[2] * te.data[,1:d]^4 
-  
-  #pred.row <- data.frame(matrix(ncol = 3*k, nrow = p))
-  
-  # Train and predict
-  # model <- rep(list(),3*k)
-  # degree = 1    # degree of the polynomial predictor
-  # #for(i in 1:k){
-  
-  #   model[[i]]    <- lm(tr.data[,d + 1:p] ~ poly(tr.data,degree + i)) # No regularization
-  #   pred.row[,i]   = predict(model[[i]],newdata = te.data)
-  
-  #   model[[i+1]]  <- poly_reg(tr.data,degree + i, 0.5) # Some regularization
-  #   pred.row[,i+1] = predict(model[[i+1]],newdata = te.data)
-  
-  #   model[[i+2]]  <- poly_reg(tr.data,degree + i, 1) # Lots regularization
-  #   pred.row[,i+2] = predict(model[[i+2]],newdata = te.data)
-  
-  # #Spline Models
-  
-  # #GAM's
-  
-  # # Nonpolynomial Kernel regression
-  # library(np)
-  # npreg(bws, txdat = tr.data[,1:d], tydat = tr.data[,d + 1:p])
-  
-  # }
-  
-  pred = data.frame(pred, Yt = te.data$Yt) # I do no think this works p > 1
+  pred = data.frame(pred, Ye = te.data$Ye) # I do no think this works p > 1
 
   return(pred)
 }
