@@ -14,9 +14,11 @@ library(ggplot2) # graphics
 
 # aX^2 + bX + c
 true_model <- function(input, p = 1){
-    
+  
     coff = c(3, 1, 5) # (aX^2, bX, c)
-    ans = coff[1] * (input^2) + coff[2] * input + coff[3]
+    ans = coff[1] * input^2 + coff[2] * input + coff[3]
+    
+    #ans = coff[1] * (input^2) + coff[2] * input + coff[3]
     return(ans)
 }
 
@@ -38,13 +40,13 @@ my.stat <- function(gen.pred, true.label){
 set.seed(9)
 
 param.min = 5
-param.max = 80
-replicate = 2
+param.max = 200
+replicate = 3
 iter = 5
 
 d = 1
 p = 1
-k = 30
+k = 10
 sigma = 1
 
 res <- rep(list(), 3) 
@@ -70,7 +72,7 @@ for(param in seq(1,(param.max - param.min + 1),iter) ) {
   for(j in 1: replicate){
     # make data
     tr.data <- data_gen(n, d, p, true_model, sigma)
-    res <- SG(n, d = 1, p = 1, k = 30, sigma = 1, true.model, tr.data)
+    res <- SG(n, d = 1, p = 1, k, sigma = 1, true.model, tr.data)
     
     tr.ans[j] <- sum(( (res[[1]][[2]] - res[[1]][[3]])^2) /length(res[[1]][[3]]))
     te.ans[j] <- sum(( (res[[2]][[2]] - res[[2]][[3]])^2) /length(res[[2]][[3]]))
@@ -126,7 +128,7 @@ ggplot(MSEs,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(-0.001, quantile(p = 0.75,MSEs$te.SG.Model)) +
+  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(-0.001,10)+ #quantile(p = 0.75,MSEs$te.SG.Model)) +
   theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 

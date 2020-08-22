@@ -12,6 +12,9 @@ source('./train_level.R')
 source('./train_predict.R')
 source('./generalize.R')
 
+library(pracma) # Legendre Polynomials
+library(orthopolynom) # Legendre Polynomials
+
 #library(caret)   # ML algorithms
 #library(mlbench) # datasets
 #library(ggplot2) # graphics
@@ -22,14 +25,13 @@ source('./generalize.R')
 #library(broom)     # Ridge Regression
 #library(glmnet)    # Ridge Regression
 
-
 SG <- function(n, d, p, k, sigma, true.model, tr.data){
   
 
 ########################
 # Train
 ########################
-
+  
 l1.input <- data.frame(matrix(ncol = k ,nrow = n), Ye = 0)
 for(row in 1:n){
   l1.input[row,] <- train_predict(tr.data,d,p, k, row)

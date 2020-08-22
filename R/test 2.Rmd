@@ -1,0 +1,268 @@
+---
+title: "R Experiments - Level 0 Generalizers"
+output: html_notebook
+---
+
+Stats Function
+```{r,include = FALSE}
+# Statistics
+my.stat <- function(k.pred, gen.pred, true.label){
+  k = length(k.pred)
+  #Majority <- mode(k.pred)                     # Classifiers
+  
+  # Best k model
+  SSE.k <- numeric(k)
+  for(j in 1:k){
+    SSE.k[j] <- sum((k.pred[,j] - true.label)^2)
+  }
+  MSE_best <- min(SSE.k)/length(true.label)
+  
+  # Averaged Stats from k models
+  Avg.pred <- rowMeans(k.pred)
+  SSE <- sum((Avg.pred - true.label)^2)
+  MSE_avg <- SSE/length(true.label)
+  
+  # SG stats
+  SSE <- sum((gen.pred - true.label)^2)
+  MSE_SG <- SSE/length(true.label)
+  
+  return(c(MSE_best, MSE_avg, MSE_SG))
+}
+```
+
+Data Import
+```{r, include = FALSE}
+#source('./functions/SG.R') # Not sure why this isn't working
+setwd('./functions')
+#getwd()
+source('./SG.R')            # Seems to work, once setwd(./functions)
+library(ggplot2)
+library(rmutil)
+
+#library(parallel)
+#no_cores <- detectCores()-1
+#cl <- makeCluster(no_cores) # library(parallel)
+# FUNCTION GOES HERE
+#stopCluster(cl)
+
+# aX^2 + bX + c
+true_model <- function(input, p = 1){
+    
+    coff = c(3, 1, 5) # (aX^2, bX, c)
+    ans = coff[1] * (input^2) + coff[2] * input + coff[3]
+    return(ans)
+}
+```
+
+Data Generation
+```{r, inlude = FALSE}
+n = 100
+sigma = 1
+tr.data <- data_gen(n, d, p, true_model, sigma)
+res <- SG(n, d = 1, p = 1, sigma = 10, true_model, tr.data)
+res[[3]] = tr.data$X
+
+ggplot(tr.data,aes(X)) +
+  geom_line(aes(y=Yt,colour="Gen Function")) +
+  geom_point(aes(y=Ye,colour="Data")) + 
+  geom_line(aes(y=res[[1]][[2]],colour="SG Fit")) + 
+  labs(x = "X", y = "Y", title = "Train data")+ theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("SG Fit" = "green", "Data" = "black", "Gen Function" = "red"))
+```
+
+
+**Sample Size  5 to 140**
+
+**Replicates   5**
+
+This function $3x^2 + x + 5$ is used to generate the data, with noise from N(0, $\sigma = 1$)
+
+All below tests used **LOO**
+
+# Approach 1 (Cole)
+
+$$k = 10$$
+```{r, echo = FALSE}
+set.seed(9)
+
+param.min = 5
+param.max = 175
+replicate = 50
+iter = 5
+d = 1
+p = 1
+k = 10
+sigma = 1
+
+res <- rep(list(), 3) 
+
+tr.param_MSE <- data.frame("SampleSize" = param.min:param.max , "SG Model" = 0)
+te.param_MSE <- data.frame("SampleSize" = param.min:param.max , "SG Model" = 0)
+true.Model.MSE <- data.frame("SampleSize" = param.min:param.max , "True Model" = 0)
+dg.MSE       <- data.frame("SampleSize" = param.min:param.max , "True Model" = 0)
+
+for(param in seq(1,(param.max - param.min + 1),iter) ) {
+
+  tr.ans <- rep(0, replicate)
+  te.ans <- rep(0, replicate)
+  dg.ans <- numeric(replicate)
+  true.model.ans <- numeric(replicate)
+  
+  n = param.min + param - 1
+  
+  for(j in 1: replicate){
+    # make data
+    tr.data <- data_gen(n, d, p, true_model, sigma)
+    res <- SG(n, d = 1, p = 1, k, sigma = 1, true_model, tr.data)
+    
+    tr.ans[j] <- sum(( (res[[1]][[2]] - res[[1]][[3]])^2) /length(res[[1]][[3]]))
+    te.ans[j] <- sum(( (res[[2]][[2]] - res[[2]][[3]])^2) /length(res[[2]][[3]]))
+    
+    dg.ans[j] <- 1/n * sum((tr.data$Ye - tr.data$Yt)^2) # MSE of train data
+    
+    ## Actual Best Model
+    coff <- lm(tr.data$Ye ~ tr.data$X + I((tr.data$X)^2))$coefficients
+    true.pred <- coff[1] + coff[2] * (tr.data$X) + coff[3] * (tr.data$X)^2
+    true.model.ans[j] <- 1/n * sum((true.pred - tr.data$Ye)^2) # MSE of train data
+    
+  }
+  tr.param_MSE[param,2] <- mean(tr.ans)
+  te.param_MSE[param,2] <- mean(te.ans)
+  dg.MSE[param,2]       <- mean(dg.ans)
+  true.Model.MSE[param,2] <- mean(true.model.ans)
+  
+    
+  cat(" ",param.max + 1 - param)
+}
+
+# Remove skipped elements (eg when Sample Size = 5,10,15,20...)
+include = seq(1,(param.max - param.min + 1),iter)
+tr.param_MSE = tr.param_MSE[include,]
+te.param_MSE = te.param_MSE[include,]
+dg.MSE     = dg.MSE[include,]
+true.Model.MSE = true.Model.MSE[include,]
+
+
+MSEs_LOO_cole = data.frame(SampleSize = dg.MSE$SampleSize, 
+                  tr = tr.param_MSE, 
+                  te = te.param_MSE, 
+                  True.Model = true.Model.MSE$True.Model,
+                  dg.Model = dg.MSE$True.Model)
+```
+
+
+```{r, echo = FALSE}
+ggplot(MSEs_LOO_cole,aes(SampleSize)) + 
+  geom_line(aes(y=tr.SG.Model,colour="Training SG")) +
+  geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
+  geom_line(aes(y=True.Model,colour="True Model")) +
+  geom_line(aes(y=dg.Model,colour="Gen Function")) +
+  labs(y = "MSE",x="Sample Size", title = "Approach 1") + ylim(0.1,15) +
+  theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
+
+ggplot(MSEs_LOO_cole,aes(SampleSize)) + 
+  geom_line(aes(y=tr.SG.Model,colour="Training SG")) +
+  geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
+  geom_line(aes(y=True.Model,colour="True Model")) +
+  geom_line(aes(y=dg.Model,colour="Gen Function")) +
+  labs(y = "MSE",x="Sample Size", title = "Approach 1: ZOOMED") + ylim(0.1,2.5) +
+  theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
+```
+
+
+
+# Approach 2 (Grunwald)
+
+$$k = 10$$
+```{r, echo = FALSE}
+set.seed(9)
+
+param.min = 5
+param.max = 175
+replicate = 50
+iter = 5
+d = 1
+p = 1
+k = 10
+sigma = 1
+
+res <- rep(list(), 3) 
+
+tr.param_MSE <- data.frame("SampleSize" = param.min:param.max , "SG Model" = 0)
+te.param_MSE <- data.frame("SampleSize" = param.min:param.max , "SG Model" = 0)
+true.Model.MSE <- data.frame("SampleSize" = param.min:param.max , "True Model" = 0)
+dg.MSE       <- data.frame("SampleSize" = param.min:param.max , "True Model" = 0)
+
+for(param in seq(1,(param.max - param.min + 1),iter) ) {
+
+  tr.ans <- rep(0, replicate)
+  te.ans <- rep(0, replicate)
+  dg.ans <- numeric(replicate)
+  true.model.ans <- numeric(replicate)
+  
+  n = param.min + param - 1
+  
+  for(j in 1: replicate){
+    # make data
+    tr.data <- data_gen(n, d, p, true_model, sigma)
+    res <- SG(n, d = 1, p = 1, k, sigma = 1, true_model, tr.data)
+    
+    tr.ans[j] <- sum(( (res[[1]][[2]] - res[[1]][[3]])^2) /length(res[[1]][[3]]))
+    te.ans[j] <- sum(( (res[[2]][[2]] - res[[2]][[3]])^2) /length(res[[2]][[3]]))
+    
+    dg.ans[j] <- 1/n * sum((tr.data$Ye - tr.data$Yt)^2) # MSE of train data
+    
+    ## Actual Best Model
+    coff <- lm(tr.data$Ye ~ tr.data$X + I((tr.data$X)^2))$coefficients
+    true.pred <- coff[1] + coff[2] * (tr.data$X) + coff[3] * (tr.data$X)^2
+    true.model.ans[j] <- 1/n * sum((true.pred - tr.data$Ye)^2) # MSE of train data
+    
+  }
+  tr.param_MSE[param,2] <- mean(tr.ans)
+  te.param_MSE[param,2] <- mean(te.ans)
+  dg.MSE[param,2]       <- mean(dg.ans)
+  true.Model.MSE[param,2] <- mean(true.model.ans)
+  
+    
+  cat(" ",param.max + 1 - param)
+}
+
+# Remove skipped elements (eg when Sample Size = 5,10,15,20...)
+include = seq(1,(param.max - param.min + 1),iter)
+tr.param_MSE = tr.param_MSE[include,]
+te.param_MSE = te.param_MSE[include,]
+dg.MSE     = dg.MSE[include,]
+true.Model.MSE = true.Model.MSE[include,]
+
+
+MSEs_LOO_grun = data.frame(SampleSize = dg.MSE$SampleSize, 
+                  tr = tr.param_MSE, 
+                  te = te.param_MSE, 
+                  True.Model = true.Model.MSE$True.Model,
+                  dg.Model = dg.MSE$True.Model)
+```
+
+
+```{r, echo = FALSE}
+ggplot(MSEs_LOO_grun,aes(SampleSize)) + 
+  geom_line(aes(y=tr.SG.Model,colour="Training SG")) +
+  geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
+  geom_line(aes(y=True.Model,colour="True Model")) +
+  geom_line(aes(y=dg.Model,colour="Gen Function")) +
+  labs(y = "MSE",x="Sample Size", title = "Approach 2") + ylim(0.1,15) +
+  theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
+
+ggplot(MSEs_LOO_grun,aes(SampleSize)) + 
+  geom_line(aes(y=tr.SG.Model,colour="Training SG")) +
+  geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
+  geom_line(aes(y=True.Model,colour="True Model")) +
+  geom_line(aes(y=dg.Model,colour="Gen Function")) +
+  labs(y = "MSE",x="Sample Size", title = "Approach 2: ZOOMED") + ylim(0.1,2.5) +
+  theme(legend.position = "bottom") + 
+  scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
+```
+
+

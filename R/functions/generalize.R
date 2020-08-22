@@ -23,7 +23,7 @@ SSE <- function(exp, truth){
 
 # Generalize 
 generalize <-  function(X,Y, k){
-  
+  #print(X-Y)
   # Breimann Optimized weights
   R = get_residuals(X,Y,k)
   #write.csv(R,'Res.csv')

@@ -69,11 +69,11 @@ ggplot(tr.data,aes(X)) +
 
 This function $3x^2 + x + 5$ is used to generate the data, with noise from N(0, $\sigma = 1$)
 
-Training Models used: $x^3,x^4,x^5,...,x^{32}$ based on the R function lm($Y \sim x^p$ )
+Training Models used: $\begin{bmatrix} x^3 & & &  \\ x^3 & x^4 & &  \\ x^3 & x^4& x^5 \\ ...&&&\\x^3 & x^4&...&...x^{32}\end{bmatrix}$ based on the R function lm($Y \sim row_i$ )
 
 
 
-# With LOO
+# With LOO (Grunwald)
 ```{r, echo = FALSE}
 # aX^2 + bX + c
 true_model <- function(input, p = 1){
@@ -86,8 +86,8 @@ true_model <- function(input, p = 1){
 set.seed(9)
 
 param.min = 5
-param.max = 80
-replicate = 2
+param.max = 175
+replicate = 50
 iter = 5
 d = 1
 p = 1
@@ -157,7 +157,7 @@ ggplot(MSEs_LOO,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size",title = "MSE") + theme(legend.position = "bottom") + 
+  labs(y = "MSE",x="Sample Size",title = "Grunwald with LOO") + theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 
 ggplot(MSEs_LOO,aes(SampleSize)) + 
@@ -165,7 +165,7 @@ ggplot(MSEs_LOO,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(0.1,15) +
+  labs(y = "MSE",x="Sample Size", title = "Grunwald with LOO: ZOOMED") + ylim(0.1,15) +
   theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 
@@ -174,7 +174,7 @@ ggplot(MSEs_LOO,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(0.1,2.5) +
+  labs(y = "MSE",x="Sample Size", title = "Grunwald with LOO: ZOOMED") + ylim(0.1,2.5) +
   theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 ```
@@ -193,7 +193,7 @@ ggplot(Diff,aes(SampleSize)) +
   theme(legend.position = "bottom") + ylim(-0.1,quantile(p = 0.95,Diff$Difference))
 ```
 
-# Without LOO
+# Without LOO (Grunwald)
 ```{r, echo = FALSE}
 # aX^2 + bX + c
 true_model <- function(input, p = 1){
@@ -210,12 +210,12 @@ true_model <- function(input, p = 1){
 set.seed(9)
 
 param.min = 5
-param.max = 80
-replicate = 100
+param.max = 175
+replicate = 50
 iter = 5
 d = 1
 p = 1
-k = 4
+k = 10
 sigma = 1
 
 res <- rep(list(), 3) 
@@ -243,9 +243,8 @@ for(param in seq(1,(param.max - param.min + 1),iter) ) {
     pred <- train_predict_all(tr.data,generate = FALSE, d,p, k, sigma)
     SG.weights <- generalize(pred[,1:k], pred$Ye, k)
     
-    # Predict
+    # Predict Train
     tr.SG.pred <- numeric( nrow( tr.data))
-    te.SG.pred <- numeric( nrow( te.data))
 
     for(i in 1:nrow(tr.data)){
       for(j in 1:k){
@@ -253,13 +252,30 @@ for(param in seq(1,(param.max - param.min + 1),iter) ) {
       }
     }
     
-    model <- rep(list(),k)
-    pred <- matrix(ncol = k, nrow = nrow(te.data) )
+    # Predict Test
+    te.SG.pred <- numeric( nrow( te.data))
     
+    pred <- matrix(ncol = k, nrow = nrow(te.data) )
+    FUN  <- legendre.polynomials(k+2)
     for(i in 1:k){
-      model[[i]] <- lm(tr.data$Ye ~ I(tr.data[,1:d]^(i+2))) # No regularization
-      pred[,i]   = model[[i]]$coefficients[1] + model[[i]]$coefficients[2] * te.data[,1:d]^(i+2)  
+    
+      train <- matrix(0, nrow = nrow(tr.data), ncol = i)
+      test  <- matrix(0, nrow = nrow(te.data), ncol = i)
+    
+      for(j in 1:i){
+        train[,j] <- predict(FUN[[j+2]], tr.data$X)
+        test[,j]  <- predict(FUN[[j+2]], te.data$X) 
+      }
+    
+      coeff  <- lm(tr.data$Ye ~ ., data = data.frame(train))$coefficients
+      coeff[is.na(coeff)] = 0
+    
+    
+      pred[,i]   = coeff[1]
+      for(j in 1:i)
+        pred[,i] = pred[,i] + coeff[i+1] * test[,i]
     }
+    
     pred = data.frame(pred, Ye = te.data$Yt)
     
     for(i in 1:nrow(te.data)){
@@ -308,7 +324,7 @@ ggplot(MSEs_wo_LOO,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size",title = "MSE") + theme(legend.position = "bottom") + 
+  labs(y = "MSE",x="Sample Size",title = "Grunwald without LOO") + theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 
 ggplot(MSEs_wo_LOO,aes(SampleSize)) + 
@@ -316,7 +332,7 @@ ggplot(MSEs_wo_LOO,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(0.1,15) +
+  labs(y = "MSE",x="Sample Size", title = "Grunwald without LOO: ZOOMED") + ylim(0.1,15) +
   theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 
@@ -325,7 +341,7 @@ ggplot(MSEs_wo_LOO,aes(SampleSize)) +
   geom_line(aes(y=te.SG.Model,colour="Testing SG")) +
   geom_line(aes(y=True.Model,colour="True Model")) +
   geom_line(aes(y=dg.Model,colour="Gen Function")) +
-  labs(y = "MSE",x="Sample Size", title = "MSE : ZOOMED") + ylim(0.1,2.5) +
+  labs(y = "MSE",x="Sample Size", title = "Grunwald without LOO : ZOOMED") + ylim(0.1,2.5) +
   theme(legend.position = "bottom") + 
   scale_color_manual("", values = c("Testing SG" = "blue", "Training SG" = "black", "Gen Function" = "red","True Model" = "green"))
 ```
